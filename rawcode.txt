@@ -1,0 +1,77 @@
+.def temp = R16
+.def flag = R17
+
+.cseg
+.org 0
+jmp Start
+
+.org $01C
+jmp ADC_Comp
+
+Start:
+
+; Stack
+ldi temp, HIGH(RAMEND)
+out SPH, temp
+ldi temp, LOW(RAMEND)
+out SPL, temp
+
+; Ports out
+ldi temp, 0xFF
+out DDRB, temp
+;out DDRD, temp
+
+; TCCR0
+; FOC0 WGM00 COM01 COM00 WGM01 CS02 CS01 CS00
+; FOC отключён в PWM режиме
+; WGM20:21 определяет то как будет работать регистр TCNT0(или как то так): только повышаться или повышаться а затем опускаться
+; COM21:20 
+; вывод OC0/OC2
+; 00 - шим не выводится / нормальная работа порта
+; 01 не используется
+; 10 - установить на совпадении порт в 0
+; 11 - инвертирование предыдущ.
+ldi temp, 0b01100011
+out TCCR0, temp
+ldi temp, 0b01100100
+out TCCR2, temp
+
+ldi temp, 0xFF
+out OCR0, temp
+out OCR2, temp
+
+; ADMUX
+; REFS1 REFS0 ADLAR 0 MUX3 MUX2 MUX1 MUX0
+; 01 - AVcc with external capacitor at AREF pin
+; ADLAR = 1 =>
+; ADCH: ADC9 ADC8 ADC7 ADC6 ADC5 ADC4 ADC3 ADC2  
+; ADCL: ADC1 ADC0
+; MUX - input pin
+; 0001 = ADC1
+ldi temp, 0b01100000
+out ADMUX, temp
+
+; ADCSRA
+; ADEN ADSC ADFR ADIF ADIE ADPS2 ADPS1 ADPS0
+; 1 ADEN - on/off ADC
+; 1 ADSC - begin converting; When the conversion is complete, it returns to zero
+; 0 ADFR - loop converting
+; 1 ADIF - = 1 когда преобразование окончено
+; 1 ADIE - разрешает прерывание АЦП
+; 110 = 64 - predivision
+ldi temp, 0b11011110
+out ADCSRA, temp
+sei
+
+Program:
+rjmp Program
+
+ADC_Comp:
+cli
+in temp, ADCL
+in temp, ADCH
+out OCR0, temp
+ldi temp, 0b11011110
+out ADCSRA, temp
+sei
+reti
